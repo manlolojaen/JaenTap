@@ -6,7 +6,7 @@ import { useCart } from '@/store/useCart';
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Plus, Minus, Search, Utensils, X, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Utensils, X, ChevronRight, Send, MessageSquare } from 'lucide-react';
 
 interface Producto {
   id: string;
@@ -23,7 +23,7 @@ export default function CartaDigital() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('bebida');
   const [searchQuery, setSearchQuery] = useState('');
-  const { items, addItem, removeItem, updateItemNota, getTotal, clearCart, setMesaId, mesaId } = useCart();
+  const { items, addItem, removeItemByIndex, updateItemNotaByIndex, getTotal, clearCart, setMesaId, mesaId } = useCart();
   const [generalNote, setGeneralNote] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [sendingOrder, setSendingOrder] = useState(false);
@@ -108,8 +108,7 @@ export default function CartaDigital() {
   };
 
   const getProductQuantityInCart = (id: string) => {
-    const item = items.find(i => i.producto_id === id);
-    return item ? item.cantidad : 0;
+    return items.filter(i => i.producto_id === id).reduce((acc, i) => acc + i.cantidad, 0);
   };
 
   const filteredProductos = productos.filter(p => {
@@ -139,6 +138,80 @@ export default function CartaDigital() {
     );
   }
 
+  // --- Reusable cart item renderer ---
+  const renderCartItem = (item: typeof items[0], idx: number) => (
+    <div key={`cart-item-${idx}`} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-100 transition-colors flex flex-col gap-2">
+      <div className="flex justify-between items-center">
+        <div className="flex-1 mr-3">
+          <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
+          <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} × {item.precio.toFixed(2)}€</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg"
+            onClick={() => removeItemByIndex(idx)}
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      {/* Nota del plato */}
+      <div className="relative">
+        <MessageSquare className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-300" />
+        <input
+          type="text"
+          placeholder="Añadir nota (ej: sin cebolla, poco hecho)..."
+          value={item.notas || ''}
+          onChange={(e) => updateItemNotaByIndex(idx, e.target.value)}
+          className="w-full text-[11px] bg-slate-50 border border-slate-100 focus:border-blue-300 focus:bg-white focus:ring-1 focus:ring-blue-100 rounded-xl pl-7 pr-3 py-2 focus:outline-none text-slate-600 font-medium transition-all"
+        />
+      </div>
+    </div>
+  );
+
+  // --- Reusable general notes section ---
+  const renderGeneralNotes = () => (
+    items.length > 0 ? (
+      <div className="px-5 py-3 bg-amber-50/50 border-t border-b border-amber-100/60 shrink-0">
+        <label className="block text-[11px] font-black text-amber-700 mb-1.5 flex items-center gap-1">
+          <MessageSquare className="h-3 w-3" />
+          Notas generales para la cocina:
+        </label>
+        <textarea
+          placeholder="Ej: alérgenos, traer bebidas primero, cubiertos extra..."
+          value={generalNote}
+          onChange={(e) => setGeneralNote(e.target.value)}
+          className="w-full text-xs bg-white border border-amber-200/60 focus:border-amber-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-amber-100 text-slate-700 font-medium transition-all resize-none h-16"
+        />
+      </div>
+    ) : null
+  );
+
+  // --- Reusable total + send button section ---
+  const renderCartFooter = (isMobile: boolean = false) => (
+    <div className={`p-5 ${isMobile ? 'pt-4' : 'pt-5'} border-t bg-white shrink-0`}>
+      <div className="flex justify-between items-center mb-2 text-xs font-bold text-slate-400">
+        <span>I.V.A (10% Incl.):</span>
+        <span>{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
+      </div>
+      <div className="flex justify-between items-center mb-5 pt-2 border-t border-dashed border-slate-200">
+        <span className="font-black text-slate-800 text-lg">Total:</span>
+        <span className="font-black text-[#005BB7] text-2xl">{getTotal().toFixed(2)}€</span>
+      </div>
+      <Button 
+        id="btn-enviar-pedido"
+        className="w-full bg-[#00C853] hover:bg-[#00B84D] active:bg-[#009624] text-white font-extrabold text-lg py-7 rounded-2xl shadow-lg shadow-green-200/60 transition-all flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:scale-100"
+        disabled={items.length === 0 || sendingOrder}
+        onClick={handleEnviarCocina}
+      >
+        <Send className="h-5 w-5" />
+        {sendingOrder ? 'Enviando pedido...' : 'Enviar Pedido a Cocina'}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20 lg:pb-8 flex flex-col">
       {/* HEADER PREMIUM */}
@@ -152,7 +225,7 @@ export default function CartaDigital() {
               <h1 className="text-lg sm:text-2xl font-black tracking-tight flex items-center gap-2">
                 JaénTap
               </h1>
-              <p className="text-xs text-blue-100 font-medium">Tapas & Gastronomía Local</p>
+              <p className="text-xs text-blue-100 font-medium">Tapas &amp; Gastronomía Local</p>
             </div>
           </div>
           
@@ -295,7 +368,19 @@ export default function CartaDigital() {
                               variant="ghost" 
                               size="icon" 
                               className="h-9 w-9 text-[#005BB7] hover:bg-[#B3E5FC] rounded-xl shrink-0"
-                              onClick={() => removeItem(producto.id, '')}
+                              onClick={() => {
+                                const idx = items.findIndex(i => i.producto_id === producto.id);
+                                if (idx !== -1) {
+                                  if (items[idx].cantidad > 1) {
+                                    // Decrement quantity by updating the item
+                                    const updatedItems = [...items];
+                                    updatedItems[idx] = { ...updatedItems[idx], cantidad: updatedItems[idx].cantidad - 1 };
+                                    useCart.setState({ items: updatedItems });
+                                  } else {
+                                    removeItemByIndex(idx);
+                                  }
+                                }
+                              }}
                             >
                               <Minus className="h-4.5 w-4.5 font-bold" />
                             </Button>
@@ -336,10 +421,12 @@ export default function CartaDigital() {
           </div>
         </div>
 
-        {/* COLUMNA CARRITO DESKTOP (STICKY) */}
+        {/* ================================================================ */}
+        {/* COLUMNA CARRITO DESKTOP (STICKY)                                 */}
+        {/* ================================================================ */}
         <aside className="hidden lg:block w-[380px] shrink-0">
           <div className="sticky top-24 bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden flex flex-col max-h-[calc(100vh-120px)]">
-            <div className="p-5 bg-gradient-to-r from-[#005BB7] to-[#0083B0] text-white flex justify-between items-center">
+            <div className="p-5 bg-gradient-to-r from-[#005BB7] to-[#0083B0] text-white flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5" />
                 <h3 className="font-black text-lg">Mi Pedido</h3>
@@ -349,81 +436,31 @@ export default function CartaDigital() {
               </Badge>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50 min-h-[200px]">
+            {/* Lista de items con notas */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-slate-50/50 min-h-[120px]">
               {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400 py-12">
-                  <ShoppingCart className="w-16 h-16 mb-4 opacity-15 text-slate-600" />
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 py-10">
+                  <ShoppingCart className="w-14 h-14 mb-3 opacity-15 text-slate-600" />
                   <p className="font-bold text-slate-600">Carrito vacío</p>
                   <p className="text-xs text-slate-400 text-center px-4 mt-1">Selecciona platos del menú para añadirlos a tu comanda.</p>
                 </div>
               ) : (
-                items.map((item, idx) => (
-                  <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-100 transition-colors animate-scale-in flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1 mr-3">
-                        <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
-                        <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} x {item.precio.toFixed(2)}€</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg"
-                          onClick={() => removeItem(item.producto_id, item.notas)}
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    {/* Nota del plato */}
-                    <div className="relative mt-1">
-                      <input
-                        type="text"
-                        placeholder="Añadir nota (ej: sin cebolla, poco hecho)..."
-                        value={item.notas || ''}
-                        onChange={(e) => updateItemNota(item.producto_id, item.notas, e.target.value)}
-                        className="w-full text-[11px] bg-slate-50 border border-slate-100 focus:border-blue-200 focus:bg-white rounded-xl px-3 py-1.5 focus:outline-none text-slate-600 font-medium transition-all"
-                      />
-                    </div>
-                  </div>
-                ))
+                items.map((item, idx) => renderCartItem(item, idx))
               )}
             </div>
 
-            {items.length > 0 && (
-              <div className="px-5 py-3 bg-slate-50 border-t border-b border-slate-100">
-                <label className="block text-[11px] font-black text-slate-500 mb-1">Notas generales para la cocina:</label>
-                <textarea
-                  placeholder="Ej: cubiertos, alérgenos, traer bebidas primero..."
-                  value={generalNote}
-                  onChange={(e) => setGeneralNote(e.target.value)}
-                  className="w-full text-xs bg-white border border-slate-200 focus:border-blue-200 rounded-xl px-3 py-2 focus:outline-none text-slate-700 font-medium transition-all resize-none h-16"
-                />
-              </div>
-            )}
+            {/* Notas generales */}
+            {renderGeneralNotes()}
 
-            <div className="p-6 border-t bg-white shadow-2xl relative z-10 shrink-0">
-              <div className="flex justify-between items-center mb-4 text-xs font-bold text-slate-400">
-                <span>I.V.A (10% Incl.):</span>
-                <span>{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
-              </div>
-              <div className="flex justify-between items-center mb-6 pt-3 border-t border-dashed">
-                <span className="font-black text-slate-800 text-lg">Total Pedido:</span>
-                <span className="font-black text-[#005BB7] text-2xl">{getTotal().toFixed(2)}€</span>
-              </div>
-              <Button 
-                className="w-full bg-[#00C853] hover:bg-green-600 text-white font-extrabold text-base py-6 rounded-2xl shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
-                disabled={items.length === 0 || sendingOrder}
-                onClick={handleEnviarCocina}
-              >
-                {sendingOrder ? 'Enviando...' : 'Enviar Pedido a Cocina'}
-              </Button>
-            </div>
+            {/* Total + Botón SIEMPRE visible */}
+            {renderCartFooter()}
           </div>
         </aside>
       </main>
 
-      {/* BARRA FLOTANTE MÓVIL (STICKY EN LA PARTE INFERIOR) */}
+      {/* ================================================================ */}
+      {/* BARRA FLOTANTE MÓVIL (STICKY EN LA PARTE INFERIOR)               */}
+      {/* ================================================================ */}
       {cartTotalItems > 0 && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md shadow-[0_-8px_30px_rgba(0,0,0,0.1)] border-t border-slate-100 z-30 animate-in slide-in-from-bottom duration-300">
           <div className="max-w-md mx-auto flex items-center justify-between gap-4">
@@ -441,7 +478,9 @@ export default function CartaDigital() {
         </div>
       )}
 
-      {/* DRAWER / BOTTOM SHEET DEL CARRITO PARA MÓVIL */}
+      {/* ================================================================ */}
+      {/* DRAWER / BOTTOM SHEET DEL CARRITO PARA MÓVIL                     */}
+      {/* ================================================================ */}
       {isCartOpen && (
         <div className="lg:hidden fixed inset-0 bg-black/60 z-50 flex justify-end backdrop-blur-sm transition-all duration-300">
           <div className="bg-white w-full sm:max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
@@ -459,7 +498,8 @@ export default function CartaDigital() {
               </Button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+            {/* Lista de items con notas */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 py-12">
                   <ShoppingCart className="w-16 h-16 mb-4 opacity-15 text-slate-600" />
@@ -467,66 +507,15 @@ export default function CartaDigital() {
                   <p className="text-xs text-slate-400 text-center px-4 mt-1">Selecciona platos de la carta.</p>
                 </div>
               ) : (
-                items.map((item, idx) => (
-                  <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1 mr-3">
-                        <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
-                        <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} x {item.precio.toFixed(2)}€</p>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg shrink-0"
-                        onClick={() => removeItem(item.producto_id, item.notas)}
-                      >
-                        <Minus className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    {/* Nota del plato */}
-                    <div className="relative mt-1">
-                      <input
-                        type="text"
-                        placeholder="Añadir nota (ej: sin cebolla, poco hecho)..."
-                        value={item.notas || ''}
-                        onChange={(e) => updateItemNota(item.producto_id, item.notas, e.target.value)}
-                        className="w-full text-[11px] bg-slate-50 border border-slate-100 focus:border-blue-200 focus:bg-white rounded-xl px-3 py-1.5 focus:outline-none text-slate-600 font-medium transition-all"
-                      />
-                    </div>
-                  </div>
-                ))
+                items.map((item, idx) => renderCartItem(item, idx))
               )}
             </div>
 
-            {items.length > 0 && (
-              <div className="px-4 py-3 bg-slate-50 border-t border-b border-slate-100 shrink-0">
-                <label className="block text-[11px] font-black text-slate-500 mb-1">Notas generales para la cocina:</label>
-                <textarea
-                  placeholder="Ej: cubiertos, alérgenos, traer bebidas primero..."
-                  value={generalNote}
-                  onChange={(e) => setGeneralNote(e.target.value)}
-                  className="w-full text-xs bg-white border border-slate-200 focus:border-blue-200 rounded-xl px-3 py-2 focus:outline-none text-slate-700 font-medium transition-all resize-none h-16"
-                />
-              </div>
-            )}
+            {/* Notas generales */}
+            {renderGeneralNotes()}
 
-            <div className="p-6 border-t bg-white shadow-2xl shrink-0">
-              <div className="flex justify-between items-center mb-4 text-xs font-bold text-slate-400">
-                <span>I.V.A (10% Incl.):</span>
-                <span>{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
-              </div>
-              <div className="flex justify-between items-center mb-6 pt-3 border-t border-dashed">
-                <span className="font-black text-slate-800 text-base">Total Pedido:</span>
-                <span className="font-black text-[#005BB7] text-xl">{getTotal().toFixed(2)}€</span>
-              </div>
-              <Button 
-                className="w-full bg-[#00C853] hover:bg-green-600 text-white font-extrabold text-base py-6 rounded-2xl shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2"
-                disabled={items.length === 0 || sendingOrder}
-                onClick={handleEnviarCocina}
-              >
-                {sendingOrder ? 'Enviando...' : 'Enviar Pedido a Cocina'}
-              </Button>
-            </div>
+            {/* Total + Botón SIEMPRE visible */}
+            {renderCartFooter(true)}
           </div>
         </div>
       )}
