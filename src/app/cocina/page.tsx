@@ -21,6 +21,7 @@ interface Comanda {
   estado: string; // 'pendiente', 'preparando', 'listo', 'entregado'
   created_at: string;
   accepted_at?: string;
+  notas_cliente?: string;
 }
 
 export default function MuroCocina() {
@@ -152,6 +153,15 @@ export default function MuroCocina() {
                 </CardHeader>
                 
                 <CardContent className="px-4 py-2 flex-1">
+                  {ticket.notas_cliente && (
+                    <div className="mb-3 bg-gradient-to-r from-red-500/10 to-amber-500/10 border border-amber-500/20 text-amber-900 px-3 py-2.5 rounded-xl text-xs font-black flex items-start gap-1.5 shadow-sm animate-scale-in">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[10px] text-amber-700 block uppercase font-bold tracking-wider">Nota General del Cliente:</span>
+                        <p className="mt-0.5 text-slate-800 text-sm italic font-extrabold">&quot;{ticket.notas_cliente}&quot;</p>
+                      </div>
+                    </div>
+                  )}
                   <ul className="space-y-3">
                     {ticket.items.map((item, idx) => (
                       <li key={idx} className="border-b border-slate-100/60 pb-2 last:border-b-0">

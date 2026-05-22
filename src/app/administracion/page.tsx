@@ -35,6 +35,7 @@ interface Comanda {
   total: number;
   estado: string;
   created_at: string;
+  notas_cliente?: string;
 }
 
 export default function AdministracionDashboard() {

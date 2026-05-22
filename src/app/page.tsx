@@ -23,7 +23,8 @@ export default function CartaDigital() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('bebida');
   const [searchQuery, setSearchQuery] = useState('');
-  const { items, addItem, removeItem, getTotal, clearCart, setMesaId, mesaId } = useCart();
+  const { items, addItem, removeItem, updateItemNota, getTotal, clearCart, setMesaId, mesaId } = useCart();
+  const [generalNote, setGeneralNote] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [sendingOrder, setSendingOrder] = useState(false);
 
@@ -86,6 +87,7 @@ export default function CartaDigital() {
         mesa_id: mesaId || 1,
         items: items,
         estado: 'pendiente',
+        notas_cliente: generalNote || null,
         total: getTotal()
       });
 
@@ -94,6 +96,7 @@ export default function CartaDigital() {
       } else {
         alert('¡Pedido enviado a cocina! Tu plato se está preparando.');
         clearCart();
+        setGeneralNote('');
         setIsCartOpen(false);
       }
     } catch (err: unknown) {
@@ -346,7 +349,7 @@ export default function CartaDigital() {
               </Badge>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50 min-h-[250px]">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50 min-h-[200px]">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 py-12">
                   <ShoppingCart className="w-16 h-16 mb-4 opacity-15 text-slate-600" />
@@ -355,20 +358,32 @@ export default function CartaDigital() {
                 </div>
               ) : (
                 items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-100 transition-colors animate-scale-in">
-                    <div className="flex-1 mr-3">
-                      <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
-                      <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} x {item.precio.toFixed(2)}€</p>
+                  <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-100 transition-colors animate-scale-in flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1 mr-3">
+                        <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
+                        <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} x {item.precio.toFixed(2)}€</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg"
+                          onClick={() => removeItem(item.producto_id, item.notas)}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg"
-                        onClick={() => removeItem(item.producto_id, item.notas)}
-                      >
-                        <Minus className="h-3.5 w-3.5" />
-                      </Button>
+                    {/* Nota del plato */}
+                    <div className="relative mt-1">
+                      <input
+                        type="text"
+                        placeholder="Añadir nota (ej: sin cebolla, poco hecho)..."
+                        value={item.notas || ''}
+                        onChange={(e) => updateItemNota(item.producto_id, item.notas, e.target.value)}
+                        className="w-full text-[11px] bg-slate-50 border border-slate-100 focus:border-blue-200 focus:bg-white rounded-xl px-3 py-1.5 focus:outline-none text-slate-600 font-medium transition-all"
+                      />
                     </div>
                   </div>
                 ))
@@ -376,28 +391,34 @@ export default function CartaDigital() {
             </div>
 
             {items.length > 0 && (
-              <div className="p-6 border-t bg-white shadow-2xl relative z-10">
-                <div className="flex justify-between items-center mb-5">
-                  <span className="font-bold text-slate-500 text-sm">Base Imponible:</span>
-                  <span className="font-black text-slate-800 text-base">{(getTotal() / 1.1).toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between items-center mb-5">
-                  <span className="font-bold text-slate-500 text-sm">I.V.A (10% Incl.):</span>
-                  <span className="font-black text-slate-800 text-base">{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between items-center mb-6 pt-3 border-t border-dashed">
-                  <span className="font-black text-slate-800 text-lg">Total Pedido:</span>
-                  <span className="font-black text-[#005BB7] text-2xl">{getTotal().toFixed(2)}€</span>
-                </div>
-                <Button 
-                  className="w-full bg-[#00C853] hover:bg-green-600 text-white font-extrabold text-base py-6 rounded-2xl shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
-                  disabled={items.length === 0 || sendingOrder}
-                  onClick={handleEnviarCocina}
-                >
-                  {sendingOrder ? 'Enviando...' : 'Confirmar y Enviar a Cocina'}
-                </Button>
+              <div className="px-5 py-3 bg-slate-50 border-t border-b border-slate-100">
+                <label className="block text-[11px] font-black text-slate-500 mb-1">Notas generales para la cocina:</label>
+                <textarea
+                  placeholder="Ej: cubiertos, alérgenos, traer bebidas primero..."
+                  value={generalNote}
+                  onChange={(e) => setGeneralNote(e.target.value)}
+                  className="w-full text-xs bg-white border border-slate-200 focus:border-blue-200 rounded-xl px-3 py-2 focus:outline-none text-slate-700 font-medium transition-all resize-none h-16"
+                />
               </div>
             )}
+
+            <div className="p-6 border-t bg-white shadow-2xl relative z-10 shrink-0">
+              <div className="flex justify-between items-center mb-4 text-xs font-bold text-slate-400">
+                <span>I.V.A (10% Incl.):</span>
+                <span>{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
+              </div>
+              <div className="flex justify-between items-center mb-6 pt-3 border-t border-dashed">
+                <span className="font-black text-slate-800 text-lg">Total Pedido:</span>
+                <span className="font-black text-[#005BB7] text-2xl">{getTotal().toFixed(2)}€</span>
+              </div>
+              <Button 
+                className="w-full bg-[#00C853] hover:bg-green-600 text-white font-extrabold text-base py-6 rounded-2xl shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+                disabled={items.length === 0 || sendingOrder}
+                onClick={handleEnviarCocina}
+              >
+                {sendingOrder ? 'Enviando...' : 'Enviar Pedido a Cocina'}
+              </Button>
+            </div>
           </div>
         </aside>
       </main>
@@ -447,43 +468,65 @@ export default function CartaDigital() {
                 </div>
               ) : (
                 items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="flex-1 mr-3">
-                      <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
-                      <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} x {item.precio.toFixed(2)}€</p>
+                  <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1 mr-3">
+                        <p className="font-bold text-slate-800 text-sm leading-snug">{item.nombre}</p>
+                        <p className="text-xs text-[#005BB7] font-extrabold mt-1">{item.cantidad} x {item.precio.toFixed(2)}€</p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg shrink-0"
+                        onClick={() => removeItem(item.producto_id, item.notas)}
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="h-8 w-8 text-red-500 border-red-100 hover:bg-red-50 rounded-lg shrink-0"
-                      onClick={() => removeItem(item.producto_id, item.notas)}
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </Button>
+                    {/* Nota del plato */}
+                    <div className="relative mt-1">
+                      <input
+                        type="text"
+                        placeholder="Añadir nota (ej: sin cebolla, poco hecho)..."
+                        value={item.notas || ''}
+                        onChange={(e) => updateItemNota(item.producto_id, item.notas, e.target.value)}
+                        className="w-full text-[11px] bg-slate-50 border border-slate-100 focus:border-blue-200 focus:bg-white rounded-xl px-3 py-1.5 focus:outline-none text-slate-600 font-medium transition-all"
+                      />
+                    </div>
                   </div>
                 ))
               )}
             </div>
 
             {items.length > 0 && (
-              <div className="p-6 border-t bg-white shadow-2xl shrink-0">
-                <div className="flex justify-between items-center mb-5 text-sm">
-                  <span className="font-bold text-slate-500">I.V.A (10% Incl.):</span>
-                  <span className="font-black text-slate-800">{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between items-center mb-6 pt-3 border-t border-dashed">
-                  <span className="font-black text-slate-800 text-base">Total Pedido:</span>
-                  <span className="font-black text-[#005BB7] text-xl">{getTotal().toFixed(2)}€</span>
-                </div>
-                <Button 
-                  className="w-full bg-[#00C853] hover:bg-green-600 text-white font-extrabold text-base py-6 rounded-2xl shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2"
-                  disabled={items.length === 0 || sendingOrder}
-                  onClick={handleEnviarCocina}
-                >
-                  {sendingOrder ? 'Enviando...' : 'Confirmar y Enviar a Cocina'}
-                </Button>
+              <div className="px-4 py-3 bg-slate-50 border-t border-b border-slate-100 shrink-0">
+                <label className="block text-[11px] font-black text-slate-500 mb-1">Notas generales para la cocina:</label>
+                <textarea
+                  placeholder="Ej: cubiertos, alérgenos, traer bebidas primero..."
+                  value={generalNote}
+                  onChange={(e) => setGeneralNote(e.target.value)}
+                  className="w-full text-xs bg-white border border-slate-200 focus:border-blue-200 rounded-xl px-3 py-2 focus:outline-none text-slate-700 font-medium transition-all resize-none h-16"
+                />
               </div>
             )}
+
+            <div className="p-6 border-t bg-white shadow-2xl shrink-0">
+              <div className="flex justify-between items-center mb-4 text-xs font-bold text-slate-400">
+                <span>I.V.A (10% Incl.):</span>
+                <span>{(getTotal() - (getTotal() / 1.1)).toFixed(2)}€</span>
+              </div>
+              <div className="flex justify-between items-center mb-6 pt-3 border-t border-dashed">
+                <span className="font-black text-slate-800 text-base">Total Pedido:</span>
+                <span className="font-black text-[#005BB7] text-xl">{getTotal().toFixed(2)}€</span>
+              </div>
+              <Button 
+                className="w-full bg-[#00C853] hover:bg-green-600 text-white font-extrabold text-base py-6 rounded-2xl shadow-lg shadow-green-100 transition-all flex items-center justify-center gap-2"
+                disabled={items.length === 0 || sendingOrder}
+                onClick={handleEnviarCocina}
+              >
+                {sendingOrder ? 'Enviando...' : 'Enviar Pedido a Cocina'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

@@ -14,6 +14,7 @@ interface CartStore {
   setMesaId: (id: number) => void
   addItem: (item: Omit<CartItem, 'cantidad'>) => void
   removeItem: (producto_id: string, notas: string) => void
+  updateItemNota: (producto_id: string, oldNotas: string, newNotas: string) => void
   clearCart: () => void
   getTotal: () => number
 }
@@ -37,6 +38,13 @@ export const useCart = create<CartStore>((set, get) => ({
   }),
   removeItem: (producto_id, notas) => set((state) => ({
     items: state.items.filter(i => !(i.producto_id === producto_id && i.notas === notas))
+  })),
+  updateItemNota: (producto_id, oldNotas, newNotas) => set((state) => ({
+    items: state.items.map(i => 
+      (i.producto_id === producto_id && i.notas === oldNotas) 
+        ? { ...i, notas: newNotas } 
+        : i
+    )
   })),
   clearCart: () => set({ items: [] }),
   getTotal: () => {

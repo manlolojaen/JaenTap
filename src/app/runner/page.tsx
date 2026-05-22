@@ -20,6 +20,7 @@ interface Comanda {
   items: ComandaItem[];
   estado: string;
   finished_at?: string;
+  notas_cliente?: string;
 }
 
 export default function VistaRunner() {
